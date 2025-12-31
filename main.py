@@ -17,9 +17,20 @@ def run():
     app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
-    # Esto enviará un mensaje de prueba al encenderse
-    requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", data={'chat_id': CHAT_ID, 'text': '🚨 Centinela en línea y vigilando...'})
+    try:
+        # Intento de mensaje forzado para verificar conexión
+        requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", data={'chat_id': CHAT_ID, 'text': '🚨 Centinela en línea y vigilando...'})
+    except:
+        print("Error al enviar mensaje de inicio")
     Thread(target=run).start()
+
+if __name__ == "__main__":
+    keep_alive()
+    # Inicia el análisis de Binance en segundo plano
+    Thread(target=analizar).start() 
+    # Mantiene el bot atento a tus mensajes
+    bot.polling(none_stop=True)
+    
     
 
 TOKEN = os.environ.get('TELEGRAM_TOKEN')
