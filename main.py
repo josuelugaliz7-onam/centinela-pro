@@ -62,7 +62,5 @@ def analizar():
 
 if __name__ == "__main__":
     keep_alive()
-    while True:
-        analizar()
-        time.sleep(300)
-                                 
+    bot.polling(none_stop=True)
+    
