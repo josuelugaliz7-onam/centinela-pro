@@ -17,7 +17,10 @@ def run():
     app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
+    # Esto enviará un mensaje de prueba al encenderse
+    requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", data={'chat_id': CHAT_ID, 'text': '🚨 Centinela en línea y vigilando...'})
     Thread(target=run).start()
+    
 
 TOKEN = os.environ.get('TELEGRAM_TOKEN')
 CHAT_ID = os.environ.get('CHAT_ID')
