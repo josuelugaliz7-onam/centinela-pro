@@ -62,5 +62,8 @@ def analizar():
 
 if __name__ == "__main__":
     keep_alive()
+    # Esto hará que el bot analice apenas se encienda
+    Thread(target=analizar).start() 
     bot.polling(none_stop=True)
+    
     
