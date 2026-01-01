@@ -1,17 +1,28 @@
 import telebot
+import time
 
-# Pega tu token EXACTO aquí. Debe verse algo como '123456:ABC-DEF...'
-TOKEN = '8169583738:AAGzzzFkPRLqE_33M-knJol9HMD6vHP_Rx0' 
+# Datos de Telegram proporcionados
+TOKEN = '8169583738:AAGzzzFkPRLqE_33M-knJol9HMD6vHP_Rx0'
 CHAT_ID = '7951954749'
 
-def iniciar_centinela():
+def iniciar_bot():
     try:
+        # Inicializamos el bot con el token corregido
         bot = telebot.TeleBot(TOKEN)
-        bot.send_message(CHAT_ID, "🚀 ¡Onam! El Centinela está VIVO. La conexión es correcta.")
-        print("✅ Conexión exitosa con Telegram")
+        
+        # Mensaje de confirmación de encendido
+        mensaje = "🚀 ¡Onam! El Centinela ya está VIVO y conectado correctamente a tu Telegram."
+        bot.send_message(CHAT_ID, mensaje)
+        
+        print("✅ Mensaje enviado con éxito. El bot está funcionando.")
+        
+        # Bucle para mantener el proceso activo en Render
+        while True:
+            time.sleep(60)
+            
     except Exception as e:
-        print(f"❌ Error crítico: {e}")
+        print(f"❌ Error al iniciar el bot: {e}")
 
 if __name__ == "__main__":
-    iniciar_centinela()
+    iniciar_bot()
     
