@@ -2,8 +2,20 @@ import telebot
 import time
 import requests
 import pandas as pd
-import threading 
+import threading
+from flask import Flask # Añadimos esto para engañar a Render
 
+# --- CONFIGURACIÓN DEL SERVIDOR WEB ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Centinela Pro está Vivo y Patrullando! 🚀"
+
+def run_web_server():
+    app.run(host='0.0.0.0', port=8080)
+
+# --- TU BOT ORIGINAL ---
 TOKEN = '8169583738:AAGzzzFkPRLqE_33M-knJol9HMD6vHP_Rx0'
 CHAT_ID = '7951954749'
 bot = telebot.TeleBot(TOKEN)
@@ -20,7 +32,6 @@ def analizar_mercado():
                 data = requests.get(url).json()
                 precios = pd.DataFrame(data)[4].astype(float)
                 
-                # RSI Simple
                 period = 14
                 delta = precios.diff()
                 gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
@@ -40,13 +51,16 @@ def analizar_mercado():
                 continue
         time.sleep(900)
 
-# --- TU COMANDO PERSONALIZADO ---
 @bot.message_handler(commands=['status', 'hola'])
 def enviar_status(message):
     bot.reply_to(message, "¡ACTIVO JEFE 😎 estoy Vivo y Patrullando!")
 
 if __name__ == "__main__":
+    # 1. Iniciamos el servidor web para Render
+    threading.Thread(target=run_web_server, daemon=True).start()
+    # 2. Iniciamos el análisis de mercado
     threading.Thread(target=analizar_mercado, daemon=True).start()
-    bot.send_message(CHAT_ID, "🚀 Sistema actualizado, Jefe. Escriba /status para ver mi estado.")
+    # 3. Iniciamos el bot de Telegram
+    bot.send_message(CHAT_ID, "🚀 Centinela con Anti-Suspensión activado, Jefe.")
     bot.polling(none_stop=True)
     
