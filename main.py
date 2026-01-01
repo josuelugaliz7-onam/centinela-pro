@@ -1,8 +1,8 @@
 import telebot
 
 # Pega tu token EXACTO aquí. Debe verse algo como '123456:ABC-DEF...'
-TOKEN = 'TU_TOKEN_AQUI' 
-CHAT_ID = 'TU_CHAT_ID_AQUI'
+TOKEN = '8169583738:AAGzzzFkPRLqE_33M-knJol9HMD6vHP_Rx0' 
+CHAT_ID = '7951954749'
 
 def iniciar_centinela():
     try:
