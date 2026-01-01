@@ -1,20 +1,17 @@
 import telebot
-import os
 
-# Configura tus credenciales aquí
-TOKEN = 'TU_TOKEN_DE_BOTFATHER'
-CHAT_ID = 'TU_CHAT_ID_DE_USERINFOBOT'
+# Pega tu token EXACTO aquí. Debe verse algo como '123456:ABC-DEF...'
+TOKEN = 'TU_TOKEN_AQUI' 
+CHAT_ID = 'TU_CHAT_ID_AQUI'
 
-bot = telebot.TeleBot(TOKEN)
-
-def probar_conexion():
+def iniciar_centinela():
     try:
-        mensaje = "🚀 ¡Onam! El Centinela está encendido y listo para el 2026."
-        bot.send_message(CHAT_ID, mensaje)
-        print("Mensaje enviado con éxito a Telegram")
+        bot = telebot.TeleBot(TOKEN)
+        bot.send_message(CHAT_ID, "🚀 ¡Onam! El Centinela está VIVO. La conexión es correcta.")
+        print("✅ Conexión exitosa con Telegram")
     except Exception as e:
-        print(f"Error al enviar mensaje: {e}")
+        print(f"❌ Error crítico: {e}")
 
 if __name__ == "__main__":
-    probar_conexion()
+    iniciar_centinela()
     
