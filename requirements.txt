@@ -1,6 +1,5 @@
 pyTelegramBotAPI
-pandas
-pandas_ta
 requests
+pandas
 flask
-gunicorn
+ccxt
