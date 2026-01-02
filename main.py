@@ -14,8 +14,8 @@ CHAT_ID = "7951954749"
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
-# Monedas estéticas y estables
-MONEDAS = ["ethereum", "bitcoin", "ripple", "dogecoin", "solana", "cardano", "polkadot", "matic-network", "chainlink", "avalanche-2"]
+# Solo las 5 más importantes y estables
+MONEDAS = ["bitcoin", "ethereum", "solana", "ripple", "dogecoin"]
 
 IMG_TORO = "https://i.ibb.co/Lkv7Lp8/toro.jpg"
 IMG_OSO = "https://i.ibb.co/S7X7Y9v/oso.jpg"
@@ -23,76 +23,65 @@ IMG_OSO = "https://i.ibb.co/S7X7Y9v/oso.jpg"
 stats = {"compras": 0, "ventas": 0, "detalles": {m: {"c": 0, "v": 0} for m in MONEDAS}}
 
 def obtener_datos(moneda):
+    # Pedimos datos de 1 minuto para máxima precisión
     url = f"https://api.coingecko.com/api/v3/coins/{moneda}/market_chart?vs_currency=usd&days=1&interval=m1"
-    res = requests.get(url, timeout=15)
+    res = requests.get(url, timeout=10)
     return pd.DataFrame([p[1] for p in res.json()['prices']], columns=['c'])
 
 def escaneo_continuo():
     global stats
+    print("🚀 PATRULLAJE DE ALTA VELOCIDAD INICIADO")
     while True:
         for moneda in MONEDAS:
             try:
                 df = obtener_datos(moneda)
+                # Cálculo puro de Stoch RSI
                 stoch = ta.stochrsi(df['c'], length=14, rsi_length=14, k=3, d=3)
-                bb = ta.bbands(df['c'], length=20, std=2)
                 
                 precio_actual = df['c'].iloc[-1]
                 k = stoch.iloc[-1][0]
-                bb_inf = bb.iloc[-1][0]
-                bb_sup = bb.iloc[-1][2]
 
-                # SEÑAL DE COMPRA 🟢
-                if k < 20 and precio_actual <= bb_inf:
+                # SEÑAL DE COMPRA 🟢 (Sobreventa < 20)
+                if k < 20:
                     msg = (f"🟢 **TORO DETECTADO: {moneda.upper()}**\n\n"
                            f"📊 RSI Stoch: {k:.2f}\n"
-                           f"💰 Entrada: ${precio_actual:.4f}\n"
-                           f"🎯 TP: ${precio_actual * 1.015:.4f}\n"
-                           f"🛑 SL: ${precio_actual * 0.99:.4f}")
+                           f"💰 Precio: ${precio_actual:.4f}\n"
+                           f"🎯 TP (1.5%): ${precio_actual * 1.015:.4f}\n"
+                           f"🛑 SL (1.0%): ${precio_actual * 0.99:.4f}")
                     bot.send_photo(CHAT_ID, IMG_TORO, caption=msg, parse_mode="Markdown")
                     stats["compras"] += 1
                     stats["detalles"][moneda]["c"] += 1
+                    time.sleep(5) # Evitar spam de la misma señal
 
-                # SEÑAL DE VENTA 🔴
-                elif k > 80 and precio_actual >= bb_sup:
+                # SEÑAL DE VENTA 🔴 (Sobrecompra > 80)
+                elif k > 80:
                     msg = (f"🔴 **OSO DETECTADO: {moneda.upper()}**\n\n"
                            f"📊 RSI Stoch: {k:.2f}\n"
-                           f"💰 Entrada: ${precio_actual:.4f}\n"
-                           f"🎯 TP: ${precio_actual * 0.985:.4f}\n"
-                           f"🛑 SL: ${precio_actual * 1.01:.4f}")
+                           f"💰 Precio: ${precio_actual:.4f}\n"
+                           f"🎯 TP (1.5%): ${precio_actual * 0.985:.4f}\n"
+                           f"🛑 SL (1.0%): ${precio_actual * 1.01:.4f}")
                     bot.send_photo(CHAT_ID, IMG_OSO, caption=msg, parse_mode="Markdown")
                     stats["ventas"] += 1
                     stats["detalles"][moneda]["v"] += 1
+                    time.sleep(5)
 
-                time.sleep(5)
             except: continue
-
-        # --- RESUMEN DE LAS 9:00 PM ---
+        
+        # Resumen Diario 9:00 PM
         ahora = datetime.now()
         if ahora.hour == 21 and ahora.minute == 0:
-            resumen = "📋 **RESUMEN DIARIO DE CAZA**\n"
-            resumen += "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n\n"
+            resumen = "📋 **RESUMEN DIARIO DE CAZA**\n\n"
             for m, s in stats["detalles"].items():
                 resumen += f"🔹 {m.capitalize()}: 🟢 {s['c']} | 🔴 {s['v']}\n"
-            
-            resumen += f"\n**TOTAL DEL DÍA:**\n🟢 {stats['compras']} Compras detectadas\n🔴 {stats['ventas']} Ventas detectadas"
             bot.send_message(CHAT_ID, resumen, parse_mode="Markdown")
-            
-            # Reinicio de contadores
             stats = {"compras": 0, "ventas": 0, "detalles": {m: {"c": 0, "v": 0} for m in MONEDAS}}
             time.sleep(60)
-            
-        time.sleep(60)
+
+        time.sleep(20) # REVISIÓN CADA 20 SEGUNDOS
 
 @bot.message_handler(commands=['status'])
 def status_command(message):
-    respuesta = (
-        f"🧑‍💻 **¡ACTIVO JEFE!**\n"
-        f"Estoy patrullando hasta ahora.\n\n"
-        f"**VAMOS:**\n"
-        f"🟢 {stats['compras']} Compras detectadas\n"
-        f"🔴 {stats['ventas']} Ventas detectadas"
-    )
-    bot.reply_to(message, respuesta, parse_mode="Markdown")
+    bot.reply_to(message, f"🧑‍💻 **¡ACTIVO JEFE!**\nPatrullando 5 monedas cada 20s.\n\n🟢 {stats['compras']} | 🔴 {stats['ventas']}", parse_mode="Markdown")
 
 @app.route('/')
 def home(): return "Centinela Activo"
@@ -101,4 +90,4 @@ if __name__ == "__main__":
     Thread(target=lambda: app.run(host='0.0.0.0', port=8080)).start()
     Thread(target=escaneo_continuo).start()
     bot.infinity_polling()
-            
+                    
