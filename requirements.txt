@@ -1,5 +1,7 @@
+pyTelegramBotAPI
 pandas
+pandas_ta
 requests
 flask
 gunicorn
-pyTelegramBotAPI
+
