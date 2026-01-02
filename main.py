@@ -82,6 +82,7 @@ def escaneo_continuo():
 @bot.message_handler(commands=['status'])
 def status_command(message):
     bot.reply_to(message, f"🧑‍💻 **¡ACTIVO JEFE!**\nPatrullando 5 monedas cada 20s.\n\n🟢 {stats['compras']} | 🔴 {stats['ventas']}", parse_mode="Markdown")
+    
 @bot.message_handler(commands=['reporte'])
 def enviar_reporte(message):
     msg_espera = bot.reply_to(message, "🔍 **Generando Reporte de Patrullaje...**")
