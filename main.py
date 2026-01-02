@@ -82,7 +82,34 @@ def escaneo_continuo():
 @bot.message_handler(commands=['status'])
 def status_command(message):
     bot.reply_to(message, f"🧑‍💻 **¡ACTIVO JEFE!**\nPatrullando 5 monedas cada 20s.\n\n🟢 {stats['compras']} | 🔴 {stats['ventas']}", parse_mode="Markdown")
-
+@bot.message_handler(commands=['reporte'])
+def enviar_reporte(message):
+    msg_espera = bot.reply_to(message, "🔍 **Generando Reporte de Patrullaje...**")
+    
+    reporte = "📊 **REPORTE DE MERCADO (15M)**\n"
+    reporte += "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+    reporte += "MONEDA | RSI | PRECIO | ESTADO\n"
+    reporte += "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+    
+    for moneda in MONEDAS:
+        try:
+            df = obtener_datos(moneda)
+            stoch = ta.stochrsi(df['c'], length=14, rsi_length=14, k=3, d=3)
+            k = stoch.iloc[-1][0]
+            precio = df['c'].iloc[-1]
+            
+            # Lógica visual para el estado
+            if k < 20: estado = "🟢 COMPRA"
+            elif k > 80: estado = "🔴 VENTA"
+            else: estado = "⚪ NEUTRAL"
+            
+            reporte += f"🔹 **{moneda.upper()}**\n   {k:.2f} | ${precio:.2f} | {estado}\n\n"
+        except:
+            reporte += f"❌ **{moneda.upper()}**: Error\n\n"
+            
+    reporte += "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
+    bot.edit_message_text(reporte, message.chat.id, msg_espera.message_id, parse_mode="Markdown")
+    
 @app.route('/')
 def home(): return "Centinela Activo"
 
