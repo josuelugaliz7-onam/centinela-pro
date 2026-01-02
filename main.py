@@ -8,8 +8,8 @@ from threading import Thread
 from flask import Flask
 
 # --- CONFIGURACIÓN ---
-TOKEN = "TU_TOKEN_AQUÍ" # Asegúrate de que tu token esté correcto
-CHAT_ID = "TU_CHAT_ID_AQUÍ"
+TOKEN = "8169583738:AAGzzzFkPRLqE_33M-knJol9HMD6vHP_Rx0" # Asegúrate de que tu token esté correcto
+CHAT_ID = "7951954749"
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
 
