@@ -14,8 +14,7 @@ API_KEY = 'XdSO34fcveUT28hE8EygJbMW0AtzFxhJVidhqhE3UyRSIUHiXqddQVs7VZqcH52K'
 API_SECRET = 'IYz86JkkcjiC3Mjm0DMD1zz8lbtzATBHdUTzm8C3K0JXLqQHFhhfWZ68hDlmosty'
 
 bot = telebot.TeleBot(TOKEN)
-bot = telebot.TeleBot(TOKEN)
-# Intentamos con el endpoint api1 que suele ser más flexible
+# Forzamos el uso de un servidor alternativo para evitar bloqueos de ubicación
 client = Client(API_KEY, API_SECRET)
 client.API_URL = 'https://api1.binance.com/api'
 
@@ -27,7 +26,7 @@ conteo_reporte = {"compras": 0, "ventas": 0}
 def obtener_datos_eth():
     global ultimo_analisis
     try:
-        # Pedimos 100 velas de 15m para ahorro de peso en API
+        # Pedimos 100 velas de 15m
         candles = client.get_klines(symbol='ETHUSDT', interval=Client.KLINE_INTERVAL_15MINUTE, limit=100)
         df = pd.DataFrame(candles, columns=['ts', 'o', 'h', 'l', 'c', 'v', 'ct', 'qv', 'nt', 'tb', 'tg', 'i'])
         df['close'] = df['c'].astype(float)
@@ -37,7 +36,6 @@ def obtener_datos_eth():
         rsi_k = stoch['STOCHRSIk_14_14_3_3'].iloc[-1]
         precio_actual = df['close'].iloc[-1]
         
-        # Actualizamos caché local para no gastar API en consultas manuales
         ultimo_analisis = {
             "precio": precio_actual,
             "rsi": rsi_k,
@@ -65,7 +63,7 @@ def enviar_reporte_periodico():
     reporte = (f"📊 **REPORTE AUTOMÁTICO**\n\n"
                f"📈 Sobrecompras (Toros 🐂): {conteo_reporte['compras']}\n"
                f"📉 Sobreventas (Osos 🐻): {conteo_reporte['ventas']}\n\n"
-               f"🔄 *Contadores reiniciados para el nuevo ciclo.*")
+               f"🔄 *Contadores reiniciados.*")
     bot.send_message(CHAT_ID, reporte, parse_mode="Markdown")
     conteo_reporte = {"compras": 0, "ventas": 0}
 
@@ -73,19 +71,16 @@ def ciclo_centinela():
     global conteo_reporte
     while True:
         rsi_k, precio = obtener_datos_eth()
-        
         if rsi_k is not None:
             if rsi_k <= 20:
                 conteo_reporte["ventas"] += 1
                 with open('toro.jpg', 'rb') as photo:
                     bot.send_photo(CHAT_ID, photo, caption=f"🔴 **SOBRE VENTA** (Oso 🐻)\n🪙 ETH/USDT\n🎯 Precio: {precio}\n🧑‍💻 RSI: {rsi_k:.2f}")
-            
             elif rsi_k >= 80:
                 conteo_reporte["compras"] += 1
                 with open('oso.jpg', 'rb') as photo:
                     bot.send_photo(CHAT_ID, photo, caption=f"🟢 **SOBRE COMPRA** (Toro 🐂)\n🪙 ETH/USDT\n🎯 Precio: {precio}\n🧑‍💻 RSI: {rsi_k:.2f}")
-        
-        time.sleep(60) # Pausa de seguridad para evitar bloqueos de IP
+        time.sleep(60)
 
 def run_scheduler():
     schedule.every().day.at("12:00").do(enviar_reporte_periodico)
@@ -97,6 +92,5 @@ def run_scheduler():
 if __name__ == "__main__":
     threading.Thread(target=run_scheduler, daemon=True).start()
     threading.Thread(target=ciclo_centinela, daemon=True).start()
-    print("Bot encendido. Centinela activo...")
     bot.polling(none_stop=True)
     
