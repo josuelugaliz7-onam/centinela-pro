@@ -1,76 +1,99 @@
 import os
 import time
 import telebot
-import ccxt
-from threading import Thread
-from flask import Flask
+from binance.client import Client
+import pandas_ta as ta
+import pandas as pd
+import schedule
+import threading
 
-# --- CONFIGURACIÓN ---
-TOKEN = "8169583738:AAGzzzFkPRLqE_33M-knJol9HMD6vHP_Rx0"
-CHAT_ID = "7951954749"
+# --- CONFIGURACIÓN DE CREDENCIALES ---
+TOKEN = '8169583738:AAGzzzFkPRLqE_33M-knJol9HMD6vHP_Rx0'
+CHAT_ID = '7951954749'
+API_KEY = 'XdSO34fcveUT28hE8EygJbMW0AtzFxhJVidhqhE3UyRSIUHiXqddQVs7VZqcH52K'
+API_SECRET = 'IYz86JkkcjiC3Mjm0DMD1zz8lbtzATBHdUTzm8C3K0JXLqQHFhhfWZ68hDlmosty'
+
 bot = telebot.TeleBot(TOKEN)
-app = Flask(__name__)
+client = Client(API_KEY, API_SECRET)
 
-# Usamos CCXT para conectar con Binance (Más estable)
-exchange = ccxt.binance()
-MONEDAS = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "XRP/USDT", "DOGE/USDT"]
+# --- VARIABLES GLOBALES (CACHÉ Y CONTEO) ---
+ultimo_analisis = {"precio": 0, "rsi": 0, "tiempo": "Esperando datos..."}
+conteo_reporte = {"compras": 0, "ventas": 0}
 
-def calcular_rsi_manual(precios, period=14):
-    if len(precios) < period + 1: return 50
-    gains, losses = [], []
-    for i in range(1, len(precios)):
-        diff = precios[i] - precios[i-1]
-        gains.append(max(diff, 0))
-        losses.append(max(-diff, 0))
-    avg_gain = sum(gains[-period:]) / period
-    avg_loss = sum(losses[-period:]) / period
-    if avg_loss == 0: return 100
-    rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
-
-def patrullaje_automatico():
-    print("🚀 PATRULLAJE AUTOMÁTICO INICIADO")
-    while True:
-        for simbolo in MONEDAS:
-            try:
-                # Obtenemos velas de 15m
-                ohlcv = exchange.fetch_ohlcv(simbolo, timeframe='15m', limit=50)
-                cierres = [x[4] for x in ohlcv]
-                precio_actual = cierres[-1]
-                rsi = calcular_rsi_manual(cierres)
-
-                # ALERTAS AUTOMÁTICAS
-                if rsi < 20:
-                    msg = f"🟢 **ALERTA TORO: {simbolo}**\n📊 RSI Stoch: {rsi:.2f}\n💰 Precio: ${precio_actual}\n\n¡Zona de rebote detectada!"
-                    bot.send_message(CHAT_ID, msg, parse_mode="Markdown")
-                elif rsi > 80:
-                    msg = f"🔴 **ALERTA OSO: {simbolo}**\n📊 RSI Stoch: {rsi:.2f}\n💰 Precio: ${precio_actual}\n\n¡Zona de venta detectada!"
-                    bot.send_message(CHAT_ID, msg, parse_mode="Markdown")
-                
-                time.sleep(2) # Pausa entre monedas
-            except Exception as e:
-                print(f"Error en {simbolo}: {e}")
+# --- FUNCIONES DE ANÁLISIS ---
+def obtener_datos_eth():
+    global ultimo_analisis
+    try:
+        # Pedimos 100 velas de 15m para ahorro de peso en API
+        candles = client.get_klines(symbol='ETHUSDT', interval=Client.KLINE_INTERVAL_15MINUTE, limit=100)
+        df = pd.DataFrame(candles, columns=['ts', 'o', 'h', 'l', 'c', 'v', 'ct', 'qv', 'nt', 'tb', 'tg', 'i'])
+        df['close'] = df['c'].astype(float)
         
-        time.sleep(60) # Espera 1 minuto para el siguiente escaneo
+        # Cálculo de Stoch RSI
+        stoch = ta.stochrsi(df['close'], length=14, rsi_length=14, k=3, d=3)
+        rsi_k = stoch['STOCHRSIk_14_14_3_3'].iloc[-1]
+        precio_actual = df['close'].iloc[-1]
+        
+        # Actualizamos caché local para no gastar API en consultas manuales
+        ultimo_analisis = {
+            "precio": precio_actual,
+            "rsi": rsi_k,
+            "tiempo": time.strftime("%H:%M:%S")
+        }
+        return rsi_k, precio_actual
+    except Exception as e:
+        print(f"Error Binance: {e}")
+        return None, None
 
-@bot.message_handler(commands=['reporte'])
-def reporte_manual(message):
-    bot.reply_to(message, "🔍 Generando reporte flash...")
-    info = "📊 **ESTADO DEL MERCADO**\n"
-    for simbolo in MONEDAS:
-        try:
-            ohlcv = exchange.fetch_ohlcv(simbolo, timeframe='15m', limit=50)
-            rsi = calcular_rsi_manual([x[4] for x in ohlcv])
-            precio = ohlcv[-1][4]
-            info += f"🔹 **{simbolo}**: {rsi:.2f} | ${precio}\n"
-        except: info += f"❌ **{simbolo}**: Error\n"
-    bot.send_message(message.chat.id, info, parse_mode="Markdown")
+# --- COMANDOS DE TELEGRAM ---
+@bot.message_handler(commands=['status'])
+def enviar_status(message):
+    global ultimo_analisis
+    resumen = (f"📊 **ESTADO DE ETH (Caché)**\n\n"
+               f"💰 Precio: ${ultimo_analisis['precio']}\n"
+               f"🧑‍💻 RSI Stoch: {ultimo_analisis['rsi']:.2f}\n"
+               f"🕒 Actualizado: {ultimo_analisis['tiempo']}\n"
+               f"✅ *Dato de memoria (Sin gasto de API)*")
+    bot.reply_to(message, resumen, parse_mode="Markdown")
 
-@app.route('/')
-def home(): return "Bot Activo"
+# --- REPORTES Y ALERTAS ---
+def enviar_reporte_periodico():
+    global conteo_reporte
+    reporte = (f"📊 **REPORTE AUTOMÁTICO**\n\n"
+               f"📈 Sobrecompras (Toros 🐂): {conteo_reporte['compras']}\n"
+               f"📉 Sobreventas (Osos 🐻): {conteo_reporte['ventas']}\n\n"
+               f"🔄 *Contadores reiniciados para el nuevo ciclo.*")
+    bot.send_message(CHAT_ID, reporte, parse_mode="Markdown")
+    conteo_reporte = {"compras": 0, "ventas": 0}
+
+def ciclo_centinela():
+    global conteo_reporte
+    while True:
+        rsi_k, precio = obtener_datos_eth()
+        
+        if rsi_k is not None:
+            if rsi_k <= 20:
+                conteo_reporte["ventas"] += 1
+                with open('toro.jpg', 'rb') as photo:
+                    bot.send_photo(CHAT_ID, photo, caption=f"🔴 **SOBRE VENTA** (Oso 🐻)\n🪙 ETH/USDT\n🎯 Precio: {precio}\n🧑‍💻 RSI: {rsi_k:.2f}")
+            
+            elif rsi_k >= 80:
+                conteo_reporte["compras"] += 1
+                with open('oso.jpg', 'rb') as photo:
+                    bot.send_photo(CHAT_ID, photo, caption=f"🟢 **SOBRE COMPRA** (Toro 🐂)\n🪙 ETH/USDT\n🎯 Precio: {precio}\n🧑‍💻 RSI: {rsi_k:.2f}")
+        
+        time.sleep(60) # Pausa de seguridad para evitar bloqueos de IP
+
+def run_scheduler():
+    schedule.every().day.at("12:00").do(enviar_reporte_periodico)
+    schedule.every().day.at("21:00").do(enviar_reporte_periodico)
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 if __name__ == "__main__":
-    Thread(target=lambda: app.run(host='0.0.0.0', port=8080)).start()
-    Thread(target=patrullaje_automatico).start()
-    bot.infinity_polling()
+    threading.Thread(target=run_scheduler, daemon=True).start()
+    threading.Thread(target=ciclo_centinela, daemon=True).start()
+    print("Bot encendido. Centinela activo...")
+    bot.polling(none_stop=True)
     
