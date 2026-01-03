@@ -1,5 +1,5 @@
 pyTelegramBotAPI
-requests
+python-binance
 pandas
-flask
-ccxt
+pandas_ta
+schedule
