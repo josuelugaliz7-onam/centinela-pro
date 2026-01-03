@@ -14,10 +14,10 @@ API_KEY = 'XdSO34fcveUT28hE8EygJbMW0AtzFxhJVidhqhE3UyRSIUHiXqddQVs7VZqcH52K'
 API_SECRET = 'IYz86JkkcjiC3Mjm0DMD1zz8lbtzATBHdUTzm8C3K0JXLqQHFhhfWZ68hDlmosty'
 
 bot = telebot.TeleBot(TOKEN)
-client = Client(API_KEY, API_SECRET, tld='com', testnet=False)
-# Si la de arriba falla, intentaremos con una URL base específica
-client.API_URL = 'https://api1.binance.com/api' 
-
+bot = telebot.TeleBot(TOKEN)
+# Intentamos con el endpoint api1 que suele ser más flexible
+client = Client(API_KEY, API_SECRET)
+client.API_URL = 'https://api1.binance.com/api'
 
 # --- VARIABLES GLOBALES (CACHÉ Y CONTEO) ---
 ultimo_analisis = {"precio": 0, "rsi": 0, "tiempo": "Esperando datos..."}
